@@ -223,10 +223,10 @@ textarea {
 }
 
 /* Shade weekends for better week visibility */
-#calendar-table td:nth-child(8n),
-#calendar-table td:nth-child(8n+1),
-#calendar-table th:nth-child(8n),
-#calendar-table th:nth-child(8n+1) {
+#calendar-table td:nth-child(7n),
+#calendar-table td:nth-child(7n+1),
+#calendar-table th:nth-child(7n),
+#calendar-table th:nth-child(7n+1) {
     background: #f1f5f9 !important;
     /* light blue-grey for weekends */
 }
