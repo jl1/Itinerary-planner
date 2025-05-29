@@ -1,0 +1,308 @@
+const START_YEAR = 2025, START_MONTH = 4; // May 2025, 0-based
+const MONTHS_COUNT = 13;
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// const MONTHS = [
+//     "January", "February", "March", "April", "May", "June", "July",
+//     "August", "September", "October", "November", "December"
+// ];
+const MONTHS = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+    "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+const DAYS_PER_ROW = 37; // 6 weeks x 7 days
+
+function getMonthData(year, month) {
+    const firstDate = new Date(year, month, 1);
+    const firstDayIdx = (firstDate.getDay() + 6) % 7; // Monday=0
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return { year, month, firstDayIdx, daysInMonth };
+}
+function get13MonthsList() {
+    let months = [];
+    let y = START_YEAR, m = START_MONTH;
+    for (let i = 0; i < MONTHS_COUNT; ++i) {
+        months.push({ year: y, month: m });
+        m++; if (m > 11) { m = 0; y++; }
+    }
+    return months;
+}
+function dateToKey(dt) { // YYYY-MM-DD
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+function parseDate(str, contextYear, contextMonth) {
+    let [d, m, y] = str.trim().split('/');
+    d = parseInt(d, 10);
+    m = m !== undefined ? parseInt(m, 10) - 1 : contextMonth;
+    y = y !== undefined ? parseInt(y, 10) : ((m < contextMonth) ? (contextYear + 1) : contextYear);
+    return new Date(y, m, d);
+}
+function parseItineraries(text, months) {
+    function parseDate(str, year) {
+        // str: "25/5" or "25/5/2025"
+        let [d, m, y] = str.split('/').map(Number);
+        if (!y) y = year;
+        return new Date(y, m - 1, d);
+    }
+    function dateToKey(d) {
+        return d.toISOString().slice(0, 10);
+    }
+
+    let entries = [];
+    let lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+    let allDateMap = {};
+    let lastTo = null;
+    let baseYear = months[0].year;
+
+    for (let i = 0; i < lines.length; ++i) {
+        let m = lines[i].match(/^(.+?)\s*-\s*(\d{1,2}\/\d{1,2}(?:\/\d{4})?)\s*-\s*(\d{1,2}\/\d{1,2}(?:\/\d{4})?)$/);
+        if (!m) continue;
+        let [_, loc, fromStr, toStr] = m;
+
+        let fromExplicit = fromStr.split('/').length === 3;
+        let toExplicit = toStr.split('/').length === 3;
+        let entryYear = baseYear;
+        let from, to;
+
+        // Handle explicit years
+        if (fromExplicit && toExplicit) {
+            from = parseDate(fromStr);
+            to = parseDate(toStr);
+        } else {
+            while (true) {
+                // Initial parse with current trial year
+                let fromYear = fromExplicit ? undefined : entryYear;
+                let toYear = toExplicit ? undefined : entryYear;
+
+                from = parseDate(fromStr, fromYear || baseYear);
+                to = parseDate(toStr, toYear || baseYear);
+
+                // If to is before from, and no explicit years, to rolls over to next year
+                if (!toExplicit && !fromExplicit && (to < from)) {
+                    to = parseDate(toStr, (toYear || baseYear) + 1);
+                }
+
+                // Entries must be strictly after previous range
+                if (!lastTo || from > lastTo) {
+                    break;
+                }
+                // Otherwise, try next year (for both from and to if not explicit)
+                entryYear++;
+            }
+        }
+
+        let fromKey = dateToKey(from), toKey = dateToKey(to);
+        entries.push({ loc: loc.trim(), from, to, fromKey, toKey, entryRaw: lines[i] });
+
+        let d = new Date(from);
+        while (d <= to) {
+            let inRange = false;
+            for (const mn of months) {
+                if (
+                    (d.getFullYear() > mn.year || (d.getFullYear() === mn.year && d.getMonth() >= mn.month)) &&
+                    (d.getFullYear() < mn.year || (d.getFullYear() === mn.year && d.getMonth() <= mn.month))
+                ) { inRange = true; break; }
+            }
+            if (!inRange) break;
+            allDateMap[dateToKey(d)] = { loc: loc.trim(), entryIndex: i, from, to, entryRaw: lines[i], fromKey, toKey };
+            d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+        }
+        lastTo = to;
+    }
+    return { allDateMap, entries };
+}
+
+
+
+function buildCalendar(months, wifeMap, husbandMap) {
+    let today = new Date(), todayKey = dateToKey(today);
+    let rows = [];
+    let header = `<tr><th></th>`;
+    for (let i = 0; i < DAYS_PER_ROW; ++i) header += `<th>${WEEKDAYS[i % 7]}</th>`;
+    header += `</tr>`;
+    rows.push(header);
+
+    months.forEach((mn, mi) => {
+        const { year, month, firstDayIdx, daysInMonth } = getMonthData(mn.year, mn.month);
+        let cells = [];
+        for (let i = 0; i < DAYS_PER_ROW; ++i) {
+            let cellDay = i - firstDayIdx + 1;
+            let impossible = (i < firstDayIdx || cellDay > daysInMonth);
+            let dt = impossible ? null : new Date(year, month, cellDay);
+            let cellKey = dt ? dateToKey(dt) : null;
+            let classes = [];
+            if (impossible) classes.push('impossible');
+            if (cellKey === todayKey) classes.push('current-day');
+            let cellHTML = '';
+            if (!impossible) {
+                cellHTML += `<span class="day-num">${cellDay}</span>`;
+            }
+            cells.push(`<td class="${classes.join(' ')}">${cellHTML}</td>`);
+        }
+        let row = `<tr>
+      <td class="month-label">${MONTHS[month]} ${year}</td>
+      ${cells.join('')}
+    </tr>`;
+        rows.push(row);
+    });
+    return rows.join('\n');
+}
+
+function getCellRects() {
+    const table = document.getElementById('calendar-table');
+    if (!table) return [];
+    let rects = [];
+    let trs = table.querySelectorAll('tr:not(:first-child)');
+    trs.forEach((tr, mi) => {
+        let tds = tr.querySelectorAll('td:not(.month-label)');
+        let rowRects = [];
+        tds.forEach(td => rowRects.push(td.getBoundingClientRect()));
+        rects.push(rowRects);
+    });
+    return rects;
+}
+
+// Overlay itinerary bars as absolutely positioned divs
+function overlayItineraryBars(months, wifeEntries, husbandEntries) {
+    const overlay = document.getElementById('calendar-overlay-canvas');
+    overlay.innerHTML = '';
+    // Wait for grid layout
+    const table = document.getElementById('calendar-table');
+    if (!table) return;
+    const tableRect = table.getBoundingClientRect();
+    const rows = table.querySelectorAll('tr:not(:first-child)');
+    if (!rows.length) return;
+
+    // For each itinerary entry, overlay its bar for each affected month
+    function overlayBars(entries, role) {
+        months.forEach((mn, mi) => {
+            const { year, month, firstDayIdx, daysInMonth } = getMonthData(mn.year, mn.month);
+            // For each entry, if overlaps this month, draw bar on this row
+            entries.forEach(entry => {
+                let entryStart = entry.from, entryEnd = entry.to;
+                let mStart = new Date(year, month, 1), mEnd = new Date(year, month, daysInMonth);
+                if (entryEnd < mStart || entryStart > mEnd) return;
+                let startDay = Math.max(1, (entryStart > mStart ? entryStart.getDate() : 1));
+                let endDay = Math.min(daysInMonth, (entryEnd < mEnd ? entryEnd.getDate() : daysInMonth));
+                let startCol = firstDayIdx + startDay - 1;
+                let endCol = firstDayIdx + endDay - 1;
+
+                // Get the cell rects for this month
+                let tr = rows[mi];
+                if (!tr) return;
+                let tds = tr.querySelectorAll('td:not(.month-label)');
+                if (startCol >= tds.length || endCol >= tds.length) return;
+                let tdStart = tds[startCol];
+                let tdEnd = tds[endCol];
+                let trRect = tr.getBoundingClientRect();
+                let tdStartRect = tdStart.getBoundingClientRect();
+                let tdEndRect = tdEnd.getBoundingClientRect();
+                // Place overlay relative to table container
+                let parentRect = overlay.parentNode.getBoundingClientRect();
+                let barLeft = tdStartRect.left - parentRect.left + 1;
+                let barRight = tdEndRect.right - parentRect.left - 2;
+                let barWidth = Math.max(0, barRight - barLeft);
+                let barTop = tdStartRect.top - parentRect.top + (role === 'wife' ? 20 : tdStartRect.height - 17);
+                let barHeight = 14;
+                let label = entry.loc.length > 22 ? entry.loc.slice(0, 20) + '…' : entry.loc;
+                // Overlay bar
+                let barDiv = document.createElement('div');
+                barDiv.className = `itin-bar-abs ${role}`;
+                barDiv.style.left = `${barLeft}px`;
+                barDiv.style.top = `${barTop}px`;
+                barDiv.style.width = `${barWidth}px`;
+                barDiv.style.height = `${barHeight}px`;
+                barDiv.title = `${role === 'wife' ? 'Leyla' : 'Lee'}: ${entry.loc} (${entry.from.toLocaleDateString()} - ${entry.to.toLocaleDateString()})`;
+                barDiv.innerHTML = `<span class="itin-label">${label}</span>`;
+                overlay.appendChild(barDiv);
+            });
+        });
+    }
+    overlayBars(wifeEntries, 'wife');
+    overlayBars(husbandEntries, 'husband');
+}
+
+function calcStats(months, husbandMap, wifeMap) {
+    let startDate = new Date(months[0].year, months[0].month, 1);
+    let last = months[months.length - 1];
+    let endDate = new Date(last.year, last.month, new Date(last.year, last.month + 1, 0).getDate());
+    let stats = {
+        London: 0, Cyprus: 0, Other: 0,
+        wifeLondon: 0, wifeCyprus: 0, wifeOther: 0,
+        husbandLondon: 0, husbandCyprus: 0, husbandOther: 0
+    };
+    let d = new Date(startDate);
+    while (d <= endDate) {
+        let k = dateToKey(d);
+        let h = husbandMap[k]?.loc, w = wifeMap[k]?.loc;
+        console.log(h);
+        if (h === "London" || h === undefined) stats.husbandLondon++;
+        else if (h === "Cyprus") stats.husbandCyprus++;
+        else if (h) stats.husbandOther++;
+        if (w === "London" || w === undefined) stats.wifeLondon++;
+        else if (w === "Cyprus") stats.wifeCyprus++;
+        else if (w) stats.wifeOther++;
+        if ((h || w)) {
+            if (h === "London" && w === "London") stats.London++;
+            else if (h === "Cyprus" && w === "Cyprus") stats.Cyprus++;
+            else if ((h && h !== "London" && h !== "Cyprus") || (w && w !== "London" && w !== "Cyprus")) stats.Other++;
+        }
+        if (h === undefined && w === undefined) stats.London++;
+        d.setDate(d.getDate() + 1);
+    }
+    return stats;
+}
+
+function statsToHTML(stats) {
+    return `
+    <div>
+        <strong>Lee:</strong> London: ${stats.husbandLondon}, Cyprus: ${stats.husbandCyprus}, Other: ${stats.husbandOther}<br>
+        <strong>Leyla:</strong> London: ${stats.wifeLondon}, Cyprus: ${stats.wifeCyprus}, Other: ${stats.wifeOther}
+        <hr style="margin:8px 0;">
+        <strong>Total days together in London:</strong> ${stats.London}<br>
+        <strong>Total days together in Cyprus:</strong> ${stats.Cyprus}<br>
+    </div>
+  `;
+}
+
+const months = get13MonthsList();
+
+function updateAll() {
+    let husbandText = document.getElementById('husband-text').value;
+    let wifeText = document.getElementById('wife-text').value;
+    let { allDateMap: husbandMap, entries: husbandEntries } = parseItineraries(husbandText, months);
+    let { allDateMap: wifeMap, entries: wifeEntries } = parseItineraries(wifeText, months);
+    document.getElementById('calendar-table').innerHTML = buildCalendar(months, wifeMap, husbandMap);
+    // Delay overlay until DOM/table layout
+    setTimeout(() => overlayItineraryBars(months, wifeEntries, husbandEntries), 10);
+    let stats = calcStats(months, husbandMap, wifeMap);
+    document.getElementById('stats').innerHTML = statsToHTML(stats);
+}
+document.getElementById('husband-text').addEventListener('input', updateAll);
+document.getElementById('wife-text').addEventListener('input', updateAll);
+
+// Example data
+document.getElementById('husband-text').value =
+    `Cyprus - 16/6 - 26/6
+Cyprus - 11/7 - 25/7
+Cyprus - 26/7 - 30/8
+Cyprus - 17/9 - 1/10
+Cyprus - 11/10 - 7/11
+Cyprus - 26/1 - 22/2
+Cyprus - 24/3 - 15/4
+Cyprus - 10/5 - 6/5
+`;
+
+document.getElementById('wife-text').value =
+    `Cyprus - 16/6 - 31/8
+Ibizia - 5/9 - 8/9
+Cyprus - 17/9 - 1/10
+Cyprus - 5/10 - 12/11
+New York - 13/11 - 21/11
+Holiday - 11/12 - 8/1
+Cyprus - 26/1 - 10/3
+Cyprus - 24/3 - 21/4
+Cyprus - 10/5 - 15/6
+`;
+
+window.addEventListener('resize', () => setTimeout(updateAll, 50));
+updateAll();
