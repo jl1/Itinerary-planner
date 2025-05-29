@@ -94,7 +94,7 @@ function parseItineraries(text, months) {
         entries.push({ loc: loc.trim(), from, to, fromKey, toKey, entryRaw: lines[i] });
 
         let d = new Date(from);
-        while (d < to) { // Only up to the night before the departure day
+        while (d <= to) { // Only up to the night before the departure day
             let inRange = false;
             for (const mn of months) {
                 if (
@@ -307,7 +307,7 @@ document.getElementById('wife-text').value =
 Ibizia - 5/9 - 8/9
 Cyprus - 17/9 - 1/10
 Cyprus - 5/10 - 12/11
-New York - 13/11 - 21/11
+New York - 12/11 - 21/11
 Holiday - 11/12 - 8/1
 Cyprus - 26/1 - 10/3
 Cyprus - 24/3 - 21/4
