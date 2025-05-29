@@ -94,7 +94,7 @@ function parseItineraries(text, months) {
         entries.push({ loc: loc.trim(), from, to, fromKey, toKey, entryRaw: lines[i] });
 
         let d = new Date(from);
-        while (d <= to) {
+        while (d < to) { // Only up to the night before the departure day
             let inRange = false;
             for (const mn of months) {
                 if (
@@ -200,6 +200,16 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
                 let parentRect = overlay.parentNode.getBoundingClientRect();
                 let barLeft = tdStartRect.left - parentRect.left + 1;
                 let barRight = tdEndRect.right - parentRect.left - 2;
+                let cellWidth = tdStartRect.width;
+                // Adjust barLeft for start day (starts at midday)
+                if (entryStart >= mStart && entryStart <= mEnd && entryStart.getFullYear() === year && entryStart.getMonth() === month && startDay === entryStart.getDate()) {
+                    barLeft += cellWidth / 2; // Start halfway through first cell
+                }
+
+                // Adjust barRight for end day (ends at midday)
+                if (entryEnd >= mStart && entryEnd <= mEnd && entryEnd.getFullYear() === year && entryEnd.getMonth() === month && endDay === entryEnd.getDate()) {
+                    barRight -= cellWidth / 2; // End halfway through last cell
+                }
                 let barWidth = Math.max(0, barRight - barLeft);
                 let barTop = tdStartRect.top - parentRect.top + (role === 'wife' ? 20 : tdStartRect.height - 17);
                 let barHeight = 14;
