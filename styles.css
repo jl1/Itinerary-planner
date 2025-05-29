@@ -233,7 +233,7 @@ textarea {
 
 /* Optional: soften impossible cells so shading is visible */
 #calendar-table td.impossible {
-    background: #f3f4f6 !important;
+    background: #969696 !important;
     /* lighter grey */
     color: #b7bac7 !important;
 }
