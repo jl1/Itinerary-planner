@@ -214,8 +214,8 @@ textarea {
 }
 
 /* Week boundary: strong left border before each Monday */
-#calendar-table td:nth-child(2),
-#calendar-table th:nth-child(2) {
+#calendar-table td:nth-child(7n+2),
+#calendar-table th:nth-child(7n+2) {
     border-left: 3px solid #94a3b8;
     /* subtle, bluish-grey line */
     /* Optionally: add a box-shadow for visibility */
