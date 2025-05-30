@@ -182,10 +182,12 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
                 let mStart = new Date(year, month, 1), mEnd = new Date(year, month, daysInMonth);
                 if (entryEnd < mStart || entryStart > mEnd) return;
                 let startDay = Math.max(1, (entryStart > mStart ? entryStart.getDate() : 1));
-                let endDay = Math.min(daysInMonth, (entryEnd < mEnd ? entryEnd.getDate() : daysInMonth));
-                let startCol = firstDayIdx + startDay - 1;
+                let lastDayInRange = new Date(entryEnd.getFullYear(), entryEnd.getMonth(), entryEnd.getDate() - 1); // Subtract one day
+                let endDay = Math.min(
+                    daysInMonth,
+                    (lastDayInRange >= mStart && lastDayInRange <= mEnd) ? lastDayInRange.getDate() : daysInMonth
+                );
                 let endCol = firstDayIdx + endDay - 1;
-
                 // Get the cell rects for this month
                 let tr = rows[mi];
                 if (!tr) return;
