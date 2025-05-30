@@ -1,10 +1,4 @@
-const START_YEAR = 2025, START_MONTH = 4; // May 2025, 0-based
-const MONTHS_COUNT = 13;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-// const MONTHS = [
-//     "January", "February", "March", "April", "May", "June", "July",
-//     "August", "September", "October", "November", "December"
-// ];
 const MONTHS = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
     "Aug", "Sep", "Oct", "Nov", "Dec"
@@ -17,15 +11,34 @@ function getMonthData(year, month) {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     return { year, month, firstDayIdx, daysInMonth };
 }
-function get13MonthsList() {
+
+function getMonthsList(startDate, endDate) {
     let months = [];
-    let y = START_YEAR, m = START_MONTH;
-    for (let i = 0; i < MONTHS_COUNT; ++i) {
+    let y = startDate.getFullYear(), m = startDate.getMonth();
+    let endY = endDate.getFullYear(), endM = endDate.getMonth();
+    while (y < endY || (y === endY && m <= endM)) {
         months.push({ year: y, month: m });
-        m++; if (m > 11) { m = 0; y++; }
+        m++;
+        if (m > 11) { m = 0; y++; }
     }
     return months;
 }
+
+function formatDateDMY(date) {
+    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+}
+
+
+function getSelectedDates() {
+    const startInput = document.getElementById('start-date');
+    const endInput = document.getElementById('end-date');
+    let startDate = new Date(startInput.value);
+    let endDate = new Date(endInput.value);
+    // Ensure endDate is after startDate
+    if (endDate < startDate) endDate = new Date(startDate);
+    return { startDate, endDate };
+}
+
 function dateToKey(dt) { // YYYY-MM-DD
     return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
@@ -69,23 +82,19 @@ function parseItineraries(text, months) {
             to = parseDate(toStr);
         } else {
             while (true) {
-                // Initial parse with current trial year
                 let fromYear = fromExplicit ? undefined : entryYear;
                 let toYear = toExplicit ? undefined : entryYear;
 
                 from = parseDate(fromStr, fromYear || baseYear);
                 to = parseDate(toStr, toYear || baseYear);
 
-                // If to is before from, and no explicit years, to rolls over to next year
                 if (!toExplicit && !fromExplicit && (to < from)) {
                     to = parseDate(toStr, (toYear || baseYear) + 1);
                 }
 
-                // Entries must be strictly after previous range
                 if (!lastTo || from > lastTo) {
                     break;
                 }
-                // Otherwise, try next year (for both from and to if not explicit)
                 entryYear++;
             }
         }
@@ -111,10 +120,10 @@ function parseItineraries(text, months) {
     return { allDateMap, entries };
 }
 
-
-
 function buildCalendar(months, wifeMap, husbandMap) {
     let today = new Date(), todayKey = dateToKey(today);
+    // Get user-selected range
+    const { startDate, endDate } = getSelectedDates();
     let rows = [];
     let header = `<tr><th></th>`;
     for (let i = 0; i < DAYS_PER_ROW; ++i) header += `<th>${WEEKDAYS[i % 7]}</th>`;
@@ -131,6 +140,10 @@ function buildCalendar(months, wifeMap, husbandMap) {
             let cellKey = dt ? dateToKey(dt) : null;
             let classes = [];
             if (impossible) classes.push('impossible');
+            // Mark as impossible if outside user-selected range
+            if (!impossible && (dt < startDate || dt > endDate)) {
+                classes.push('impossible');
+            }
             if (cellKey === todayKey) classes.push('current-day');
             let cellHTML = '';
             if (!impossible) {
@@ -165,44 +178,35 @@ function getCellRects() {
 function overlayItineraryBars(months, wifeEntries, husbandEntries) {
     const overlay = document.getElementById('calendar-overlay-canvas');
     overlay.innerHTML = '';
-    // Wait for grid layout
     const table = document.getElementById('calendar-table');
     if (!table) return;
     const tableRect = table.getBoundingClientRect();
     const rows = table.querySelectorAll('tr:not(:first-child)');
     if (!rows.length) return;
 
-    // For each itinerary entry, overlay its bar for each affected month
     function overlayBars(entries, role) {
         months.forEach((mn, mi) => {
             const { year, month, firstDayIdx, daysInMonth } = getMonthData(mn.year, mn.month);
-            // For each entry, if overlaps this month, draw bar on this row
             entries.forEach(entry => {
-                let entryStart = entry.from, entryEnd = entry.to; // to is exclusive
+                let entryStart = entry.from, entryEnd = entry.to; // entryEnd is the depart day (exclusive)
                 let mStart = new Date(year, month, 1), mEnd = new Date(year, month, daysInMonth);
                 if (entryStart > mEnd || entryEnd <= mStart) return;
                 let startDay = Math.max(1, (entryStart > mStart ? entryStart.getDate() : 1));
-
                 // The last day to include in the bar (not entryEnd itself)
                 let lastBarDate = new Date(Math.min(entryEnd.getTime() - 86400000, mEnd.getTime()));
                 if (lastBarDate < mStart) return;
                 let endDay = lastBarDate.getDate();
-
                 let startCol = firstDayIdx + startDay - 1;
                 let endCol = firstDayIdx + endDay - 1;
-
-                // Get the cell rects for this month
                 let tr = rows[mi];
                 if (!tr) return;
                 let tds = tr.querySelectorAll('td:not(.month-label)');
                 if (startCol >= tds.length || endCol >= tds.length) return;
                 let tdStart = tds[startCol];
                 let tdEnd = tds[endCol];
-                let trRect = tr.getBoundingClientRect();
+                let parentRect = overlay.parentNode.getBoundingClientRect();
                 let tdStartRect = tdStart.getBoundingClientRect();
                 let tdEndRect = tdEnd.getBoundingClientRect();
-                // Place overlay relative to table container
-                let parentRect = overlay.parentNode.getBoundingClientRect();
                 let barLeft = tdStartRect.left - parentRect.left + 1;
                 let barRight = tdEndRect.right - parentRect.left - 2;
                 let cellWidth = tdStartRect.width;
@@ -210,16 +214,18 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
                 if (entryStart >= mStart && entryStart <= mEnd && entryStart.getFullYear() === year && entryStart.getMonth() === month && startDay === entryStart.getDate()) {
                     barLeft += cellWidth / 2; // Start halfway through first cell
                 }
-
-                // Adjust barRight for end day (ends at midday)
-                if (entryEnd >= mStart && entryEnd <= mEnd && entryEnd.getFullYear() === year && entryEnd.getMonth() === month && endDay === entryEnd.getDate()) {
-                    barRight -= cellWidth / 2; // End halfway through last cell
+                // Adjust barRight for end day (depart day): bar ends at left edge of depart day cell
+                if (entryEnd >= mStart && entryEnd <= mEnd && entryEnd.getFullYear() === year && entryEnd.getMonth() === month && endDay === (entryEnd.getDate() - 1)) {
+                    barRight -= cellWidth / 2; // End halfway through last cell (optional: can use left edge for sharper cutoff)
+                }
+                // If depart day is in this month, and bar ends on that day, snap to left edge
+                if (entryEnd >= mStart && entryEnd <= mEnd && entryEnd.getFullYear() === year && entryEnd.getMonth() === month && endDay === (entryEnd.getDate() - 1)) {
+                    barRight = tdEndRect.left - parentRect.left + cellWidth / 2 - 2; // just to the left of midpoint
                 }
                 let barWidth = Math.max(0, barRight - barLeft);
                 let barTop = tdStartRect.top - parentRect.top + (role === 'wife' ? 20 : tdStartRect.height - 17);
                 let barHeight = 14;
                 let label = entry.loc.length > 22 ? entry.loc.slice(0, 20) + '…' : entry.loc;
-                // Overlay bar
                 let barDiv = document.createElement('div');
                 barDiv.className = `itin-bar-abs ${role}`;
                 barDiv.style.left = `${barLeft}px`;
@@ -236,64 +242,75 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
     overlayBars(husbandEntries, 'husband');
 }
 
-function calcStats(months, husbandMap, wifeMap) {
-    let startDate = new Date(months[0].year, months[0].month, 1);
-    let last = months[months.length - 1];
-    let endDate = new Date(last.year, last.month, new Date(last.year, last.month + 1, 0).getDate());
-    let stats = {
-        London: 0, Cyprus: 0, Other: 0,
-        wifeLondon: 0, wifeCyprus: 0, wifeOther: 0,
-        husbandLondon: 0, husbandCyprus: 0, husbandOther: 0
-    };
+function calcLocationStats(months, personMap) {
+    const { startDate, endDate } = getSelectedDates();
+    let locationCounts = {};
     let d = new Date(startDate);
     while (d <= endDate) {
         let k = dateToKey(d);
-        let h = husbandMap[k]?.loc, w = wifeMap[k]?.loc;
-        console.log(h);
-        if (h === "London" || h === undefined) stats.husbandLondon++;
-        else if (h === "Cyprus") stats.husbandCyprus++;
-        else if (h) stats.husbandOther++;
-        if (w === "London" || w === undefined) stats.wifeLondon++;
-        else if (w === "Cyprus") stats.wifeCyprus++;
-        else if (w) stats.wifeOther++;
-        if ((h || w)) {
-            if (h === "London" && w === "London") stats.London++;
-            else if (h === "Cyprus" && w === "Cyprus") stats.Cyprus++;
-            else if ((h && h !== "London" && h !== "Cyprus") || (w && w !== "London" && w !== "Cyprus")) stats.Other++;
-        }
-        if (h === undefined && w === undefined) stats.London++;
+        let loc = personMap[k]?.loc || "London";
+        if (!locationCounts[loc]) locationCounts[loc] = 0;
+        locationCounts[loc]++;
         d.setDate(d.getDate() + 1);
     }
-    return stats;
+    return locationCounts;
 }
 
-function statsToHTML(stats) {
+function calcDaysTogetherApart(months, husbandMap, wifeMap) {
+    const { startDate, endDate } = getSelectedDates();
+    let daysTogether = 0, daysApart = 0;
+    let d = new Date(startDate);
+    while (d <= endDate) {
+        let k = dateToKey(d);
+        let hLoc = husbandMap[k]?.loc || "London";
+        let wLoc = wifeMap[k]?.loc || "London";
+        if (hLoc === wLoc) daysTogether++;
+        else daysApart++;
+        d.setDate(d.getDate() + 1);
+    }
+    return { daysTogether, daysApart };
+}
+
+function statsToHTML(husbandStats, wifeStats, daysInRange, daysTogether, daysApart) {
+    function locList(stats) {
+        return Object.entries(stats)
+            .map(([loc, count]) => `<div>${loc}: <strong>${count}</strong></div>`)
+            .join('');
+    }
     return `
-    <div>
-        <strong>Lee:</strong> London: ${stats.husbandLondon}, Cyprus: ${stats.husbandCyprus}, Other: ${stats.husbandOther}<br>
-        <strong>Leyla:</strong> London: ${stats.wifeLondon}, Cyprus: ${stats.wifeCyprus}, Other: ${stats.wifeOther}
-        <hr style="margin:8px 0;">
-        <strong>Total days together in London:</strong> ${stats.London}<br>
-        <strong>Total days together in Cyprus:</strong> ${stats.Cyprus}<br>
+    <div style="display:flex; gap:2.5em; flex-wrap:wrap; align-items:flex-start;">
+      <div><strong>Lee</strong>${locList(husbandStats)}</div>
+      <div><strong>Leyla</strong>${locList(wifeStats)}</div>
     </div>
+    <hr style="margin:8px 0;">
+    <strong>Days in range:</strong> ${daysInRange}<br>
+    <strong>Days together:</strong> ${daysTogether}<br>
+    <strong>Days apart:</strong> ${daysApart}
   `;
 }
 
-const months = get13MonthsList();
-
 function updateAll() {
+    const { startDate, endDate } = getSelectedDates();
+    const months = getMonthsList(startDate, endDate);
     let husbandText = document.getElementById('husband-text').value;
     let wifeText = document.getElementById('wife-text').value;
     let { allDateMap: husbandMap, entries: husbandEntries } = parseItineraries(husbandText, months);
     let { allDateMap: wifeMap, entries: wifeEntries } = parseItineraries(wifeText, months);
     document.getElementById('calendar-table').innerHTML = buildCalendar(months, wifeMap, husbandMap);
-    // Delay overlay until DOM/table layout
     setTimeout(() => overlayItineraryBars(months, wifeEntries, husbandEntries), 10);
-    let stats = calcStats(months, husbandMap, wifeMap);
-    document.getElementById('stats').innerHTML = statsToHTML(stats);
+    // Calculate days in range
+    const daysInRange = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
+    // Compute location stats for each person
+    const husbandStats = calcLocationStats(months, husbandMap);
+    const wifeStats = calcLocationStats(months, wifeMap);
+    const { daysTogether, daysApart } = calcDaysTogetherApart(months, husbandMap, wifeMap);
+    document.getElementById('stats').innerHTML = statsToHTML(husbandStats, wifeStats, daysInRange, daysTogether, daysApart);
 }
+
 document.getElementById('husband-text').addEventListener('input', updateAll);
 document.getElementById('wife-text').addEventListener('input', updateAll);
+document.getElementById('start-date').addEventListener('change', updateAll);
+document.getElementById('end-date').addEventListener('change', updateAll);
 
 // Example data
 document.getElementById('husband-text').value =
@@ -320,4 +337,6 @@ Cyprus - 10/5 - 15/6
 `;
 
 window.addEventListener('resize', () => setTimeout(updateAll, 50));
+
+// Initial setup
 updateAll();

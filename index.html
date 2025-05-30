@@ -9,7 +9,10 @@
 </head>
 
 <body>
-    <h1>Itinerary Planner - <span style="font-size:0.83em; font-weight:normal;">(May 2025 - May 2026)</span>
+    <h1>Itinerary Planner -
+        <input type="date" id="start-date" value="2025-05-24" class="date-inline-picker">
+        <span style="font-size:0.83em; font-weight:normal;">to</span>
+        <input type="date" id="end-date" value="2026-05-23" class="date-inline-picker">
     </h1>
     <div id="calendar-overlay-wrap">
         <div id="calendar-grid-wrap">
@@ -19,12 +22,12 @@
     </div>
     <div class="calendar-inputs-wrap">
         <div class="inputs-box">
-            <label for="wife-text">Leyla Itinerary</label>
-            <textarea id="wife-text" placeholder="E.g.&#10;London - 1/5 - 29/5&#10;Cyprus - 30/5 - 4/8"></textarea>
-        </div>
-        <div class="inputs-box">
             <label for="husband-text">Lee Itinerary</label>
             <textarea id="husband-text" placeholder="E.g.&#10;London - 1/5 - 14/6&#10;Cyprus - 15/6 - 30/6"></textarea>
+        </div>
+        <div class="inputs-box">
+            <label for="wife-text">Leyla Itinerary</label>
+            <textarea id="wife-text" placeholder="E.g.&#10;London - 1/5 - 29/5&#10;Cyprus - 30/5 - 4/8"></textarea>
         </div>
         <div>
             <label>Stats</label>
