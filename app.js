@@ -92,7 +92,8 @@ function parseItineraries(text, months) {
                     to = parseDate(toStr, (toYear || baseYear) + 1);
                 }
 
-                if (!lastTo || from > lastTo) {
+                // Only increment year if 'from' is strictly before lastTo
+                if (!lastTo || from >= lastTo) {
                     break;
                 }
                 entryYear++;
@@ -371,7 +372,7 @@ document.getElementById('end-date').addEventListener('change', updateAll);
 document.getElementById('husband-text').value =
     `Cyprus - 16/6 - 26/6
 Cyprus - 11/7 - 25/7
-Cyprus - 26/7 - 30/8
+Cyprus - 25/7 - 30/8
 Cyprus - 17/9 - 1/10
 Cyprus - 11/10 - 7/11
 Cyprus - 26/1 - 22/2
@@ -383,8 +384,8 @@ document.getElementById('wife-text').value =
     `Cyprus - 16/6 - 31/8
 Ibizia - 5/9 - 8/9
 Cyprus - 17/9 - 1/10
-Cyprus - 5/10 - 12/11
-New York - 12/11 - 21/11
+Cyprus - 5/10 - 13/11
+New York - 13/11 - 21/11
 Holiday - 11/12 - 8/1
 Cyprus - 26/1 - 10/3
 Cyprus - 24/3 - 21/4
