@@ -184,16 +184,74 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
     const rows = table.querySelectorAll('tr:not(:first-child)');
     if (!rows.length) return;
 
+    function isFirstOfNextMonth(date, year, month) {
+        // Returns true if date is the 1st of the month after (year, month)
+        let nextMonth = month + 1;
+        let nextYear = year;
+        if (nextMonth > 11) {
+            nextMonth = 0;
+            nextYear++;
+        }
+        return date.getFullYear() === nextYear && date.getMonth() === nextMonth && date.getDate() === 1;
+    }
+
     function overlayBars(entries, role) {
         months.forEach((mn, mi) => {
             const { year, month, firstDayIdx, daysInMonth } = getMonthData(mn.year, mn.month);
             entries.forEach(entry => {
-                let entryStart = entry.from, entryEnd = entry.to; // entryEnd is the depart day (exclusive)
+                let entryStart = entry.from, entryEnd = entry.to;
                 let mStart = new Date(year, month, 1), mEnd = new Date(year, month, daysInMonth);
-                if (entryStart > mEnd || entryEnd <= mStart) return;
+                let coversLastDay = false;
+                if (isFirstOfNextMonth(entryEnd, year, month) && entryStart <= mEnd) {
+                    coversLastDay = true;
+                }
+                if (entryStart > mEnd || (entryEnd <= mStart && !coversLastDay)) {
+                    // Special case: entryEnd is exactly the 1st of this month and entryStart is before mStart
+                    if (
+                        entryEnd.getFullYear() === year &&
+                        entryEnd.getMonth() === month &&
+                        entryEnd.getDate() === 1 &&
+                        entryStart < mStart
+                    ) {
+                        // Draw bar for the first actual day of the month (first non-impossible cell)
+                        let tr = rows[mi];
+                        if (!tr) return;
+                        let tds = tr.querySelectorAll('td:not(.month-label)');
+                        let td = null;
+                        for (let j = 0; j < tds.length; ++j) {
+                            if (!tds[j].classList.contains('impossible')) {
+                                td = tds[j];
+                                break;
+                            }
+                        }
+                        if (!td) return;
+                        let parentRect = overlay.parentNode.getBoundingClientRect();
+                        let tdRect = td.getBoundingClientRect();
+                        let barLeft = tdRect.left - parentRect.left;
+                        let barRight = tdRect.right - tdRect.width / 2 - parentRect.left;
+                        let barWidth = Math.max(0, barRight - barLeft);
+                        let barTop = tdRect.top - parentRect.top + (role === 'wife' ? 20 : tdRect.height - 17);
+                        let barHeight = 14;
+                        let label = entry.loc.length > 22 ? entry.loc.slice(0, 20) + '…' : entry.loc;
+                        let barDiv = document.createElement('div');
+                        barDiv.className = `itin-bar-abs ${role}`;
+                        barDiv.style.left = `${barLeft}px`;
+                        barDiv.style.top = `${barTop}px`;
+                        barDiv.style.width = `${barWidth}px`;
+                        barDiv.style.height = `${barHeight}px`;
+                        barDiv.title = `${role === 'wife' ? 'Leyla' : 'Lee'}: ${entry.loc} (${entry.from.toLocaleDateString()} - ${entry.to.toLocaleDateString()})`;
+                        barDiv.innerHTML = `<span class=\"itin-label\">${label}</span>`;
+                        overlay.appendChild(barDiv);
+                    }
+                    return;
+                }
                 let startDay = Math.max(1, (entryStart > mStart ? entryStart.getDate() : 1));
-                // The last day to include in the bar (not entryEnd itself)
-                let lastBarDate = new Date(Math.min(entryEnd.getTime() - 86400000, mEnd.getTime()));
+                let lastBarDate;
+                if (coversLastDay) {
+                    lastBarDate = mEnd;
+                } else {
+                    lastBarDate = new Date(Math.min(entryEnd.getTime() - 86400000, mEnd.getTime()));
+                }
                 if (lastBarDate < mStart) return;
                 let endDay = lastBarDate.getDate();
                 let startCol = firstDayIdx + startDay - 1;
@@ -207,20 +265,17 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
                 let parentRect = overlay.parentNode.getBoundingClientRect();
                 let tdStartRect = tdStart.getBoundingClientRect();
                 let tdEndRect = tdEnd.getBoundingClientRect();
-                let barLeft = tdStartRect.left - parentRect.left + 1;
-                let barRight = tdEndRect.right - parentRect.left - 2;
+                let barLeft = tdStartRect.left - parentRect.left;
+                let barRight = tdEndRect.right - parentRect.left;
                 let cellWidth = tdStartRect.width;
-                // Adjust barLeft for start day (starts at midday)
                 if (entryStart >= mStart && entryStart <= mEnd && entryStart.getFullYear() === year && entryStart.getMonth() === month && startDay === entryStart.getDate()) {
-                    barLeft += cellWidth / 2; // Start halfway through first cell
+                    barLeft += cellWidth / 2;
                 }
-                // Adjust barRight for end day (depart day): bar ends at left edge of depart day cell
-                if (entryEnd >= mStart && entryEnd <= mEnd && entryEnd.getFullYear() === year && entryEnd.getMonth() === month && endDay === (entryEnd.getDate() - 1)) {
-                    barRight -= cellWidth / 2; // End halfway through last cell (optional: can use left edge for sharper cutoff)
+                if (!coversLastDay && entryEnd >= mStart && entryEnd <= mEnd && entryEnd.getFullYear() === year && entryEnd.getMonth() === month && endDay === (entryEnd.getDate() - 1)) {
+                    barRight -= cellWidth / 2;
                 }
-                // If depart day is in this month, and bar ends on that day, snap to left edge
-                if (entryEnd >= mStart && entryEnd <= mEnd && entryEnd.getFullYear() === year && entryEnd.getMonth() === month && endDay === (entryEnd.getDate() - 1)) {
-                    barRight = tdEndRect.left - parentRect.left + cellWidth / 2 - 2; // just to the left of midpoint
+                if (!coversLastDay && entryEnd >= mStart && entryEnd <= mEnd && entryEnd.getFullYear() === year && entryEnd.getMonth() === month && endDay === (entryEnd.getDate() - 1)) {
+                    barRight = tdEndRect.right - parentRect.left + cellWidth / 2 - 2;
                 }
                 let barWidth = Math.max(0, barRight - barLeft);
                 let barTop = tdStartRect.top - parentRect.top + (role === 'wife' ? 20 : tdStartRect.height - 17);
@@ -233,7 +288,7 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
                 barDiv.style.width = `${barWidth}px`;
                 barDiv.style.height = `${barHeight}px`;
                 barDiv.title = `${role === 'wife' ? 'Leyla' : 'Lee'}: ${entry.loc} (${entry.from.toLocaleDateString()} - ${entry.to.toLocaleDateString()})`;
-                barDiv.innerHTML = `<span class="itin-label">${label}</span>`;
+                barDiv.innerHTML = `<span class=\"itin-label\">${label}</span>`;
                 overlay.appendChild(barDiv);
             });
         });
