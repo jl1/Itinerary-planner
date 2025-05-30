@@ -187,6 +187,7 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
                     daysInMonth,
                     (lastDayInRange >= mStart && lastDayInRange <= mEnd) ? lastDayInRange.getDate() : daysInMonth
                 );
+                let startCol = firstDayIdx + startDay - 1;
                 let endCol = firstDayIdx + endDay - 1;
                 // Get the cell rects for this month
                 let tr = rows[mi];
