@@ -94,7 +94,7 @@ function parseItineraries(text, months) {
         entries.push({ loc: loc.trim(), from, to, fromKey, toKey, entryRaw: lines[i] });
 
         let d = new Date(from);
-        while (d <= to) { // Only up to the night before the departure day
+        while (d < to) { // Only up to the night before the departure day
             let inRange = false;
             for (const mn of months) {
                 if (
@@ -178,17 +178,19 @@ function overlayItineraryBars(months, wifeEntries, husbandEntries) {
             const { year, month, firstDayIdx, daysInMonth } = getMonthData(mn.year, mn.month);
             // For each entry, if overlaps this month, draw bar on this row
             entries.forEach(entry => {
-                let entryStart = entry.from, entryEnd = entry.to;
+                let entryStart = entry.from, entryEnd = entry.to; // to is exclusive
                 let mStart = new Date(year, month, 1), mEnd = new Date(year, month, daysInMonth);
-                if (entryEnd < mStart || entryStart > mEnd) return;
+                if (entryStart > mEnd || entryEnd <= mStart) return;
                 let startDay = Math.max(1, (entryStart > mStart ? entryStart.getDate() : 1));
-                let lastDayInRange = new Date(entryEnd.getFullYear(), entryEnd.getMonth(), entryEnd.getDate() - 1); // Subtract one day
-                let endDay = Math.min(
-                    daysInMonth,
-                    (lastDayInRange >= mStart && lastDayInRange <= mEnd) ? lastDayInRange.getDate() : daysInMonth
-                );
+
+                // The last day to include in the bar (not entryEnd itself)
+                let lastBarDate = new Date(Math.min(entryEnd.getTime() - 86400000, mEnd.getTime()));
+                if (lastBarDate < mStart) return;
+                let endDay = lastBarDate.getDate();
+
                 let startCol = firstDayIdx + startDay - 1;
                 let endCol = firstDayIdx + endDay - 1;
+
                 // Get the cell rects for this month
                 let tr = rows[mi];
                 if (!tr) return;
