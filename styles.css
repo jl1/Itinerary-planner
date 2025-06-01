@@ -178,11 +178,9 @@ h1 input[type="date"] {
 }
 
 .calendar-inputs-wrap {
-    margin: 0.3rem auto 0rem auto;
-    max-width: 1160px;
     display: flex;
     flex-wrap: wrap;
-    gap: 2.2rem;
+    gap: 4rem;
     justify-content: center;
     align-items: flex-start;
 }
@@ -201,7 +199,6 @@ label {
 }
 
 textarea {
-    width: 100%;
     min-height: 160px;
     border: 1.5px solid #ccd2df;
     border-radius: 7px;
@@ -265,4 +262,10 @@ textarea {
     display: inline-block;
     height: 1em;
     min-width: 140px;
+}
+
+.inputs-flex-row {
+    display: flex;
+    gap: 1.2rem;
+    align-items: flex-start;
 }

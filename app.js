@@ -142,8 +142,14 @@ function buildCalendar(months, wifeMap, husbandMap) {
             let classes = [];
             if (impossible) classes.push('impossible');
             // Mark as impossible if outside user-selected range
-            if (!impossible && (dt < startDate || dt > endDate)) {
-                classes.push('impossible');
+            if (!impossible) {
+                // Normalize times for comparison
+                const dtTime = dt.setHours(0, 0, 0, 0);
+                const startTime = startDate.setHours(0, 0, 0, 0);
+                const endTime = endDate.setHours(0, 0, 0, 0);
+                if (dtTime < startTime || dtTime > endTime) {
+                    classes.push('impossible');
+                }
             }
             if (cellKey === todayKey) classes.push('current-day');
             let cellHTML = '';
@@ -327,22 +333,39 @@ function calcDaysTogetherApart(months, husbandMap, wifeMap) {
     return { daysTogether, daysApart };
 }
 
-function statsToHTML(husbandStats, wifeStats, daysInRange, daysTogether, daysApart) {
-    function locList(stats) {
-        return Object.entries(stats)
-            .map(([loc, count]) => `<div>${loc}: <strong>${count}</strong></div>`)
-            .join('');
-    }
+function statsToHTMLPerson(stats) {
+    return Object.entries(stats)
+        .map(([loc, count]) => `<div>${loc}: <strong>${count}</strong></div>`)
+        .join('');
+}
+
+function statsToHTMLJoint(daysInRange, daysTogether, daysApart, longestTogether, longestApart) {
     return `
-    <div style="display:flex; gap:2.5em; flex-wrap:wrap; align-items:flex-start;">
-      <div><strong>Lee</strong>${locList(husbandStats)}</div>
-      <div><strong>Leyla</strong>${locList(wifeStats)}</div>
-    </div>
-    <hr style="margin:8px 0;">
     <strong>Days in range:</strong> ${daysInRange}<br>
     <strong>Days together:</strong> ${daysTogether}<br>
-    <strong>Days apart:</strong> ${daysApart}
+    <strong>Days apart:</strong> ${daysApart}<br>
+    <strong>Longest consecutive days together:</strong> ${longestTogether}<br>
+    <strong>Longest consecutive days apart:</strong> ${longestApart}
   `;
+}
+
+function calcLongestStreak(months, husbandMap, wifeMap, together) {
+    const { startDate, endDate } = getSelectedDates();
+    let d = new Date(startDate);
+    let maxStreak = 0, currentStreak = 0;
+    while (d <= endDate) {
+        let k = dateToKey(d);
+        let hLoc = husbandMap[k]?.loc || "London";
+        let wLoc = wifeMap[k]?.loc || "London";
+        if ((hLoc === wLoc) === together) {
+            currentStreak++;
+            if (currentStreak > maxStreak) maxStreak = currentStreak;
+        } else {
+            currentStreak = 0;
+        }
+        d.setDate(d.getDate() + 1);
+    }
+    return maxStreak;
 }
 
 function updateAll() {
@@ -360,7 +383,11 @@ function updateAll() {
     const husbandStats = calcLocationStats(months, husbandMap);
     const wifeStats = calcLocationStats(months, wifeMap);
     const { daysTogether, daysApart } = calcDaysTogetherApart(months, husbandMap, wifeMap);
-    document.getElementById('stats').innerHTML = statsToHTML(husbandStats, wifeStats, daysInRange, daysTogether, daysApart);
+    const longestTogether = calcLongestStreak(months, husbandMap, wifeMap, true);
+    const longestApart = calcLongestStreak(months, husbandMap, wifeMap, false);
+    document.getElementById('husband-stats').innerHTML = statsToHTMLPerson(husbandStats);
+    document.getElementById('wife-stats').innerHTML = statsToHTMLPerson(wifeStats);
+    document.getElementById('stats').innerHTML = statsToHTMLJoint(daysInRange, daysTogether, daysApart, longestTogether, longestApart);
 }
 
 document.getElementById('husband-text').addEventListener('input', updateAll);
@@ -377,12 +404,12 @@ Cyprus - 17/9 - 1/10
 Cyprus - 11/10 - 7/11
 Cyprus - 26/1 - 22/2
 Cyprus - 24/3 - 15/4
-Cyprus - 10/5 - 6/5
+Cyprus - 10/5 - 6/6
 `;
 
 document.getElementById('wife-text').value =
     `Cyprus - 16/6 - 31/8
-Ibizia - 5/9 - 8/9
+Ibiza - 5/9 - 8/9
 Cyprus - 17/9 - 1/10
 Cyprus - 5/10 - 13/11
 New York - 13/11 - 21/11

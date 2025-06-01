@@ -10,9 +10,9 @@
 
 <body>
     <h1>Itinerary Planner -
-        <input type="date" id="start-date" value="2025-06-15" class="date-inline-picker">
+        <input type="date" id="start-date" value="2025-06-16" class="date-inline-picker">
         <span style="font-size:0.83em; font-weight:normal;">to</span>
-        <input type="date" id="end-date" value="2026-06-16" class="date-inline-picker">
+        <input type="date" id="end-date" value="2026-06-15" class="date-inline-picker">
     </h1>
     <div id="calendar-overlay-wrap">
         <div id="calendar-grid-wrap">
@@ -23,14 +23,21 @@
     <div class="calendar-inputs-wrap">
         <div class="inputs-box">
             <label for="husband-text">Lee Itinerary</label>
-            <textarea id="husband-text" placeholder="E.g.&#10;London - 1/5 - 14/6&#10;Cyprus - 15/6 - 30/6"></textarea>
+            <div class="inputs-flex-row">
+                <textarea id="husband-text"
+                    placeholder="E.g.&#10;London - 1/5 - 14/6&#10;Cyprus - 15/6 - 30/6"></textarea>
+                <div class="stats" id="husband-stats"></div>
+            </div>
         </div>
         <div class="inputs-box">
             <label for="wife-text">Leyla Itinerary</label>
-            <textarea id="wife-text" placeholder="E.g.&#10;London - 1/5 - 29/5&#10;Cyprus - 30/5 - 4/8"></textarea>
+            <div class="inputs-flex-row">
+                <textarea id="wife-text" placeholder="E.g.&#10;London - 1/5 - 29/5&#10;Cyprus - 30/5 - 4/8"></textarea>
+                <div class="stats" id="wife-stats"></div>
+            </div>
         </div>
         <div>
-            <label>Stats</label>
+            <label>Joint Stats</label>
             <div class="stats" id="stats"></div>
         </div>
     </div>
