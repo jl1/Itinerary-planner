@@ -395,6 +395,31 @@ document.getElementById('wife-text').addEventListener('input', updateAll);
 document.getElementById('start-date').addEventListener('change', updateAll);
 document.getElementById('end-date').addEventListener('change', updateAll);
 
+document.getElementById('save-btn').onclick = async () => {
+    const state = {
+        startDate: document.getElementById('start-date').value,
+        endDate: document.getElementById('end-date').value,
+        husbandText: document.getElementById('husband-text').value,
+        wifeText: document.getElementById('wife-text').value,
+    };
+    await fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+    });
+    alert('Saved!');
+};
+
+document.getElementById('load-btn').onclick = async () => {
+    const res = await fetch('/api/state');
+    const state = await res.json();
+    if (state.startDate) document.getElementById('start-date').value = state.startDate;
+    if (state.endDate) document.getElementById('end-date').value = state.endDate;
+    if (state.husbandText) document.getElementById('husband-text').value = state.husbandText;
+    if (state.wifeText) document.getElementById('wife-text').value = state.wifeText;
+    updateAll();
+};
+
 // Example data
 document.getElementById('husband-text').value =
     `Cyprus - 16/6 - 26/6
