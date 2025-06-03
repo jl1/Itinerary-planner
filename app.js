@@ -372,7 +372,6 @@ function validateItineraryInput(text, months) {
     const errors = [];
     const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
     let prevTo = null;
-    let prevLine = null;
     let baseYear = months[0].year;
 
     for (let i = 0; i < lines.length; ++i) {
@@ -384,25 +383,49 @@ function validateItineraryInput(text, months) {
         }
         const [_, loc, fromStr, toStr] = m;
         let from, to;
-        try {
-            from = parseDate(fromStr, baseYear, 0);
-            to = parseDate(toStr, baseYear, 0);
-        } catch {
-            errors.push(`Line ${i + 1}: Invalid date.`);
-            continue;
+        let tryYear = baseYear;
+        let fromExplicit = fromStr.split('/').length === 3;
+        let toExplicit = toStr.split('/').length === 3;
+        let valid = false;
+        // Try to match parseItineraries logic for year rollover
+        for (let attempt = 0; attempt < 3; ++attempt) {
+            try {
+                from = parseDate(fromStr, tryYear, 0);
+                to = parseDate(toStr, tryYear, 0);
+            } catch {
+                errors.push(`Line ${i + 1}: Invalid date.`);
+                break;
+            }
+            if (isNaN(from) || isNaN(to)) {
+                errors.push(`Line ${i + 1}: Invalid date.`);
+                break;
+            }
+            if (to <= from) {
+                // If both dates are not explicit and depart < arrive, try next year for depart
+                if (!fromExplicit && !toExplicit && attempt === 0) {
+                    to = parseDate(toStr, tryYear + 1, 0);
+                    if (to > from) {
+                        valid = true;
+                        break;
+                    }
+                }
+                errors.push(`Line ${i + 1}: Depart date must be after arrive date.`);
+                break;
+            }
+            // If previous depart exists and this arrive is before it, try next year for arrive/depart
+            if (prevTo && from < prevTo && !fromExplicit && !toExplicit && attempt === 0) {
+                tryYear++;
+                continue;
+            }
+            if (prevTo && from < prevTo) {
+                errors.push(`Line ${i + 1}: Arrive date must not overlap or be before previous depart date.`);
+            }
+            valid = true;
+            break;
         }
-        if (isNaN(from) || isNaN(to)) {
-            errors.push(`Line ${i + 1}: Invalid date.`);
-            continue;
+        if (valid) {
+            prevTo = to;
         }
-        if (to <= from) {
-            errors.push(`Line ${i + 1}: Depart date must be after arrive date.`);
-        }
-        if (prevTo && from < prevTo) {
-            errors.push(`Line ${i + 1}: Arrive date must not overlap or be before previous depart date.`);
-        }
-        prevTo = to;
-        prevLine = line;
     }
     return errors;
 }
