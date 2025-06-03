@@ -211,6 +211,17 @@ textarea {
     box-sizing: border-box;
 }
 
+textarea.invalid {
+    border: 2px solid #e74c3c;
+    background: #fff6f6;
+}
+
+.error-messages {
+    color: #e74c3c;
+    font-size: 0.95em;
+    margin-top: 0.25em;
+}
+
 .stats {
     background: #fff;
     border-radius: 8px;

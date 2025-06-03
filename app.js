@@ -368,11 +368,71 @@ function calcLongestStreak(months, husbandMap, wifeMap, together) {
     return maxStreak;
 }
 
+function validateItineraryInput(text, months) {
+    const errors = [];
+    const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+    let prevTo = null;
+    let prevLine = null;
+    let baseYear = months[0].year;
+
+    for (let i = 0; i < lines.length; ++i) {
+        const line = lines[i];
+        const m = line.match(/^(.+?)\s*-\s*(\d{1,2}\/\d{1,2}(?:\/\d{4})?)\s*-\s*(\d{1,2}\/\d{1,2}(?:\/\d{4})?)$/);
+        if (!m) {
+            errors.push(`Line ${i + 1}: Invalid format. Use "<destination> - <arrive> - <depart>"`);
+            continue;
+        }
+        const [_, loc, fromStr, toStr] = m;
+        let from, to;
+        try {
+            from = parseDate(fromStr, baseYear, 0);
+            to = parseDate(toStr, baseYear, 0);
+        } catch {
+            errors.push(`Line ${i + 1}: Invalid date.`);
+            continue;
+        }
+        if (isNaN(from) || isNaN(to)) {
+            errors.push(`Line ${i + 1}: Invalid date.`);
+            continue;
+        }
+        if (to <= from) {
+            errors.push(`Line ${i + 1}: Depart date must be after arrive date.`);
+        }
+        if (prevTo && from < prevTo) {
+            errors.push(`Line ${i + 1}: Arrive date must not overlap or be before previous depart date.`);
+        }
+        prevTo = to;
+        prevLine = line;
+    }
+    return errors;
+}
+
+function showValidationErrors(textareaId, errorDivId, months) {
+    const textarea = document.getElementById(textareaId);
+    const errorDiv = document.getElementById(errorDivId);
+    const errors = validateItineraryInput(textarea.value, months);
+    if (errors.length) {
+        textarea.classList.add('invalid');
+        errorDiv.innerHTML = errors.map(e => `<div>${e}</div>`).join('');
+    } else {
+        textarea.classList.remove('invalid');
+        errorDiv.innerHTML = '';
+    }
+    return errors.length === 0;
+}
+
 function updateAll() {
     const { startDate, endDate } = getSelectedDates();
     const months = getMonthsList(startDate, endDate);
     let husbandText = document.getElementById('husband-text').value;
     let wifeText = document.getElementById('wife-text').value;
+
+    // Validate and show errors
+    const husbandValid = showValidationErrors('husband-text', 'husband-errors', months);
+    const wifeValid = showValidationErrors('wife-text', 'wife-errors', months);
+
+    if (!husbandValid || !wifeValid) return;
+
     let { allDateMap: husbandMap, entries: husbandEntries } = parseItineraries(husbandText, months);
     let { allDateMap: wifeMap, entries: wifeEntries } = parseItineraries(wifeText, months);
     document.getElementById('calendar-table').innerHTML = buildCalendar(months, wifeMap, husbandMap);
