@@ -503,6 +503,26 @@ document.getElementById('load-btn').onclick = async () => {
     updateAll();
 };
 
+// Initial setup: load from backend on launch
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const res = await fetch('/api/state');
+        if (res.ok) {
+            const state = await res.json();
+            if (state.startDate) document.getElementById('start-date').value = state.startDate;
+            if (state.endDate) document.getElementById('end-date').value = state.endDate;
+            if (state.husbandText) document.getElementById('husband-text').value = state.husbandText;
+            if (state.wifeText) document.getElementById('wife-text').value = state.wifeText;
+        }
+    } catch (e) {
+        // Optionally handle fetch error (e.g., show a message)
+    }
+    updateAll();
+});
+
+// Example data 
+/*
+
 // Example data
 document.getElementById('husband-text').value =
     `Cyprus - 16/6 - 26/6
@@ -526,6 +546,7 @@ Cyprus - 26/1 - 10/3
 Cyprus - 24/3 - 21/4
 Cyprus - 10/5 - 15/6
 `;
+*/
 
 window.addEventListener('resize', () => setTimeout(updateAll, 50));
 
